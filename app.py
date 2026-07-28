@@ -10,7 +10,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 # ===== 寫死正確網址（e1e3，不是 ele3） =====
 ORIGIN = "https://111-production-e1e3.up.railway.app"
-BARK_KEY = os.environ.get("BARK_API_KEY", "")
+BARK_KEY = PCGCvJEfKgazY8ufYAPzwa
 
 @app.get("/debug")
 async def debug():
