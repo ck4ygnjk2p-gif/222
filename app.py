@@ -8,8 +8,8 @@ import urllib.parse
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# 直接寫死 Railway 網址（不靠環境變數，避免跑掉）
-ORIGIN = "https://111-production-e1e3.up.railway.app"
+# ===== 關鍵修正：正確的 Railway 網址 =====
+ORIGIN = "https://111-production-e1e3.up.railway.app"   # 注意是 e1e3（數字 1），不是 ele3
 BARK_KEY = os.environ.get("BARK_API_KEY", "")
 
 # ---------- Debug 端點 ----------
@@ -41,7 +41,6 @@ def check_on_wife():
     apps = data.get("recent_apps", [])
     ses = data.get("sessions", {})
     
-    # 解析 app 名稱（處理各種格式）
     app_names = []
     for app in apps:
         if isinstance(app, str):
@@ -55,7 +54,6 @@ def check_on_wife():
         else:
             app_names.append(str(app))
     
-    # 去重複但保留順序
     seen = set()
     unique_apps = []
     for name in app_names:
