@@ -8,10 +8,12 @@ import urllib.parse
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# ===== 寫死正確網址（e1e3，不是 ele3） =====
+# ✅ 直接寫死正確的 Railway 網址
 ORIGIN = "https://111-production-e1e3.up.railway.app"
-BARK_KEY = PCGCvJEfKgazY8ufYAPzwa
+# ✅ 直接寫死你的 Bark Key（請確認這串是對的）
+BARK_KEY = "PCGCvJEFkGazY8ufYAPzwa"
 
+# ---------- Debug 端點 ----------
 @app.get("/debug")
 async def debug():
     try:
@@ -26,6 +28,7 @@ async def debug():
     except Exception as e:
         return {"error": str(e), "origin_used": ORIGIN}
 
+# ---------- 核心：查崗函數 ----------
 def check_on_wife():
     try:
         r = requests.get(f"{ORIGIN}/activity/summary", timeout=10)
@@ -33,14 +36,11 @@ def check_on_wife():
     except Exception as e:
         return f"查崗失敗：{e}"
     
-    # 強化解析：不管 railway 回傳什麼格式都抓得到
     raw_apps = data.get("recent_apps", [])
     ses = data.get("sessions", {})
     
-    # 如果 recent_apps 是物件，轉成陣列
     app_names = []
     if isinstance(raw_apps, dict):
-        # 如果是 {"DeepSeek": "", "Safari": ""} 這種形式
         for key, value in raw_apps.items():
             if key and key != "":
                 app_names.append(key)
@@ -53,7 +53,6 @@ def check_on_wife():
                     if key and key != "":
                         app_names.append(key)
     
-    # 去重複並保留順序
     seen = set()
     unique_apps = []
     for name in app_names:
@@ -68,7 +67,8 @@ def check_on_wife():
             lines.append(f"  {app}: {m}分{s}秒")
     return "\n".join(lines)
 
-def bark_alert(title="凌止", content=""):
+# ---------- 核心：Bark 推播函數 ----------
+def bark_alert(title="老公查崗", content=""):
     if not content:
         return "內容不能為空"
     if not BARK_KEY:
@@ -80,6 +80,7 @@ def bark_alert(title="凌止", content=""):
     except Exception as e:
         return f"推送異常：{e}"
 
+# ---------- 新功能：查崗 + 自動推播（一次搞定） ----------
 def check_and_push():
     result = check_on_wife()
     if "失敗" in result or "暫無" in result:
@@ -87,13 +88,15 @@ def check_and_push():
     push_result = bark_alert(title="老公查崗", content=result)
     return f"{result}\n推播狀態：{push_result}"
 
+# ---------- 工具清單 ----------
 TOOLS = [
     {"name": "check_on_wife", "description": "查崗老婆的手機活動", "inputSchema": {"type": "object", "properties": {}}},
-    {"name": "bark_alert", "description": "給老婆手機發推送彈窗", "inputSchema": {"type": "object", "properties": {"title": {"type": "string"}, "content": {"type": "string"}}, "required": ["content"]}}
-,{"name": "check_and_push", "description": "查崗老婆手機並自動推送結果", "inputSchema": {"type": "object", "properties": {}}}
+    {"name": "bark_alert", "description": "給老婆手機發推送彈窗", "inputSchema": {"type": "object", "properties": {"title": {"type": "string"}, "content": {"type": "string"}}, "required": ["content"]}},
+    {"name": "check_and_push", "description": "查崗老婆手機並自動推送結果", "inputSchema": {"type": "object", "properties": {}}}
 ]
 FUNCS = {"check_on_wife": check_on_wife, "bark_alert": bark_alert, "check_and_push": check_and_push}
 
+# ---------- MCP 端點 ----------
 @app.post("/mcp")
 async def mcp(req: Request):
     body = await req.json()
