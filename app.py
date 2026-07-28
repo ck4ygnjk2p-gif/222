@@ -8,7 +8,7 @@ import urllib.parse
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# ✅ 直接寫死正確的 Railway 網址（已檢查三次，絕對是 e1e3）
+# ===== 寫死正確網址（e1e3，不是 ele3） =====
 ORIGIN = "https://111-production-e1e3.up.railway.app"
 BARK_KEY = os.environ.get("BARK_API_KEY", "")
 
@@ -32,30 +32,35 @@ def check_on_wife():
         data = r.json()
     except Exception as e:
         return f"查崗失敗：{e}"
-
-    apps = data.get("recent_apps", [])
+    
+    # 強化解析：不管 railway 回傳什麼格式都抓得到
+    raw_apps = data.get("recent_apps", [])
     ses = data.get("sessions", {})
-
+    
+    # 如果 recent_apps 是物件，轉成陣列
     app_names = []
-    for app in apps:
-        if isinstance(app, str):
-            app_names.append(app)
-        elif isinstance(app, dict):
-            for key, value in app.items():
-                if isinstance(value, list):
-                    app_names.extend([str(v) for v in value if v])
-                else:
-                    app_names.append(str(value))
-        else:
-            app_names.append(str(app))
-
+    if isinstance(raw_apps, dict):
+        # 如果是 {"DeepSeek": "", "Safari": ""} 這種形式
+        for key, value in raw_apps.items():
+            if key and key != "":
+                app_names.append(key)
+    elif isinstance(raw_apps, list):
+        for app in raw_apps:
+            if isinstance(app, str) and app:
+                app_names.append(app)
+            elif isinstance(app, dict):
+                for key, value in app.items():
+                    if key and key != "":
+                        app_names.append(key)
+    
+    # 去重複並保留順序
     seen = set()
     unique_apps = []
     for name in app_names:
         if name not in seen:
             seen.add(name)
             unique_apps.append(name)
-
+    
     lines = [f"最近打開：{', '.join(unique_apps) if unique_apps else '暫無記錄'}"]
     if ses:
         for app, secs in sorted(ses.items(), key=lambda x: x[1], reverse=True):
