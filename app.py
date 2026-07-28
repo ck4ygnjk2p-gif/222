@@ -6,63 +6,71 @@ import uvicorn
 import urllib.parse
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_
-headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+# 直接寫死 Railway 網址（不靠環境變數，避免跑掉）
 ORIGIN = "https://111-production-e1e3.up.railway.app"
 BARK_KEY = os.environ.get("BARK_API_KEY", "")
 
-# ---------- 超級偵錯端點 ----------
+# ---------- Debug 端點 ----------
 @app.get("/debug")
 async def debug():
     try:
-        # 讓它顯示「Vercel 正在問的完整網址」
         target_url = f"{ORIGIN}/activity/summary"
         r = requests.get(target_url, timeout=10)
         data = r.json()
         return {
-            "vercel_requested_url": target_url,   # 這裡會顯示 Vercel 到底去問了什麼！
+            "vercel_request_url": target_url,
             "railway_raw": data,
-            "origin_env_value": ORIGIN
+            "origin_used": ORIGIN
         }
     except Exception as e:
         return {
             "error": str(e),
-            "origin_env_value": ORIGIN,
-            "vercel_requested_url": f"{ORIGIN}/activity/summary"
+            "origin_used": ORIGIN,
+            "vercel_request_url": f"{ORIGIN}/activity/summary"
         }
 
 def check_on_wife():
     try:
         r = requests.get(f"{ORIGIN}/activity/summary", timeout=10)
         data = r.json()
-        apps = data.get("recent_apps", [])
-        ses = data.get("sessions", {})
-        app_names = []
-        for app in apps:
-            if isinstance(app, str):
-                app_names.append(app)
-            elif isinstance(app, dict):
-                for key, value in app.items():
-                    if isinstance(value, list):
-                        app_names.extend([str(v) for v in value if v])
-                    else:
-                        app_names.append(str(value))
-            else:
-                app_names.append(str(app))
-        seen = set()
-        unique_apps = []
-        for name in app_names:
-            if name not in seen:
-                seen.add(name)
-                unique_apps.append(name)
-        lines = [f"最近打開：{', '.join(unique_apps) if unique_apps else '暫無記錄'}"]
-        if ses:
-            for app, secs in sorted(ses.items(), key=lambda x: x[1], reverse=True):
-                m, s = divmod(secs, 60)
-                lines.append(f"  {app}: {m}分{s}秒")
-        return "\n".join(lines)
     except Exception as e:
         return f"查崗失敗：{e}"
+    
+    apps = data.get("recent_apps", [])
+    ses = data.get("sessions", {})
+    
+    # 解析 app 名稱（處理各種格式）
+    app_names = []
+    for app in apps:
+        if isinstance(app, str):
+            app_names.append(app)
+        elif isinstance(app, dict):
+            for key, value in app.items():
+                if isinstance(value, list):
+                    app_names.extend([str(v) for v in value if v])
+                else:
+                    app_names.append(str(value))
+        else:
+            app_names.append(str(app))
+    
+    # 去重複但保留順序
+    seen = set()
+    unique_apps = []
+    for name in app_names:
+        if name not in seen:
+            seen.add(name)
+            unique_apps.append(name)
+    
+    lines = [f"最近打開：{', '.join(unique_apps) if unique_apps else '暫無記錄'}"]
+    
+    if ses:
+        for app, secs in sorted(ses.items(), key=lambda x: x[1], reverse=True):
+            m, s = divmod(secs, 60)
+            lines.append(f"  {app}: {m}分{s}秒")
+    
+    return "\n".join(lines)
 
 def bark_alert(title="凌止", content=""):
     if not content:
