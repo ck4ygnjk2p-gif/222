@@ -6,9 +6,8 @@ import uvicorn
 import urllib.parse
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-
-ORIGIN = os.environ.get("ORIGIN_API", "https://111-production-e1e3.up.railway.app")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_
+ORIGIN = "https://111-production-e1e3.up.railway.app"
 BARK_KEY = os.environ.get("BARK_API_KEY", "")
 
 # ---------- 超級偵錯端點 ----------
