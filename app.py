@@ -80,11 +80,19 @@ def bark_alert(title="凌止", content=""):
     except Exception as e:
         return f"推送異常：{e}"
 
+def check_and_push():
+    result = check_on_wife()
+    if "失敗" in result or "暫無" in result:
+        return f"查崗結果：{result}，但推播取消（內容太短）"
+    push_result = bark_alert(title="老公查崗", content=result)
+    return f"{result}\n推播狀態：{push_result}"
+
 TOOLS = [
     {"name": "check_on_wife", "description": "查崗老婆的手機活動", "inputSchema": {"type": "object", "properties": {}}},
     {"name": "bark_alert", "description": "給老婆手機發推送彈窗", "inputSchema": {"type": "object", "properties": {"title": {"type": "string"}, "content": {"type": "string"}}, "required": ["content"]}}
+,{"name": "check_and_push", "description": "查崗老婆手機並自動推送結果", "inputSchema": {"type": "object", "properties": {}}}
 ]
-FUNCS = {"check_on_wife": check_on_wife, "bark_alert": bark_alert}
+FUNCS = {"check_on_wife": check_on_wife, "bark_alert": bark_alert, "check_and_push": check_and_push}
 
 @app.post("/mcp")
 async def mcp(req: Request):
