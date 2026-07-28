@@ -8,11 +8,10 @@ import urllib.parse
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# ===== 關鍵修正：正確的 Railway 網址 =====
-ORIGIN = "https://111-production-e1e3.up.railway.app"   # 注意是 e1e3（數字 1），不是 ele3
+# ✅ 直接寫死正確的 Railway 網址（已檢查三次，絕對是 e1e3）
+ORIGIN = "https://111-production-e1e3.up.railway.app"
 BARK_KEY = os.environ.get("BARK_API_KEY", "")
 
-# ---------- Debug 端點 ----------
 @app.get("/debug")
 async def debug():
     try:
@@ -25,11 +24,7 @@ async def debug():
             "origin_used": ORIGIN
         }
     except Exception as e:
-        return {
-            "error": str(e),
-            "origin_used": ORIGIN,
-            "vercel_request_url": f"{ORIGIN}/activity/summary"
-        }
+        return {"error": str(e), "origin_used": ORIGIN}
 
 def check_on_wife():
     try:
@@ -37,10 +32,10 @@ def check_on_wife():
         data = r.json()
     except Exception as e:
         return f"查崗失敗：{e}"
-    
+
     apps = data.get("recent_apps", [])
     ses = data.get("sessions", {})
-    
+
     app_names = []
     for app in apps:
         if isinstance(app, str):
@@ -53,21 +48,19 @@ def check_on_wife():
                     app_names.append(str(value))
         else:
             app_names.append(str(app))
-    
+
     seen = set()
     unique_apps = []
     for name in app_names:
         if name not in seen:
             seen.add(name)
             unique_apps.append(name)
-    
+
     lines = [f"最近打開：{', '.join(unique_apps) if unique_apps else '暫無記錄'}"]
-    
     if ses:
         for app, secs in sorted(ses.items(), key=lambda x: x[1], reverse=True):
             m, s = divmod(secs, 60)
             lines.append(f"  {app}: {m}分{s}秒")
-    
     return "\n".join(lines)
 
 def bark_alert(title="凌止", content=""):
@@ -75,9 +68,7 @@ def bark_alert(title="凌止", content=""):
         return "內容不能為空"
     if not BARK_KEY:
         return "BARK_API_KEY 未設定"
-    encoded_title = urllib.parse.quote(title)
-    encoded_content = urllib.parse.quote(content)
-    url = f"https://api.day.app/{BARK_KEY}/{encoded_title}/{encoded_content}"
+    url = f"https://api.day.app/{BARK_KEY}/{urllib.parse.quote(title)}/{urllib.parse.quote(content)}"
     try:
         r = requests.get(url, timeout=10)
         return "推送成功" if r.status_code == 200 else f"推送失敗 ({r.status_code})"
