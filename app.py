@@ -7,6 +7,7 @@ import urllib.parse
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_
+headers=["*"])
 ORIGIN = "https://111-production-e1e3.up.railway.app"
 BARK_KEY = os.environ.get("BARK_API_KEY", "")
 
