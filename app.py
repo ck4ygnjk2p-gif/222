@@ -7,7 +7,7 @@ import uvicorn
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-ORIGIN = os.environ.get("ORIGIN_API", "https://你的Railway域名")
+ORIGIN = os.environ.get("ORIGIN_API", "https://111-production-e1e3.up.railway.app")
 BARK_KEY = os.environ.get("BARK_API_KEY", "")
 
 def check_on_wife():
@@ -16,16 +16,43 @@ def check_on_wife():
         data = r.json()
     except Exception as e:
         return f"查崗失敗：{e}"
+    
     apps = data.get("recent_apps", [])
     ses = data.get("sessions", {})
-    lines = [f"最近打開：{', '.join(apps) if apps else '暫無記錄'}"]
+    
+    # 強化版解析：專門對付你剛剛截圖那種怪怪的格式
+    app_names = []
+    for app in apps:
+        if isinstance(app, str):
+            app_names.append(app)
+        elif isinstance(app, dict):
+            for key, value in app.items():
+                if isinstance(value, list):
+                    # 過濾掉空字串
+                    app_names.extend([str(v) for v in value if v])
+                else:
+                    app_names.append(str(value))
+        else:
+            app_names.append(str(app))
+    
+    # 去重複但保留順序（避免一堆 Kelivo）
+    seen = set()
+    unique_apps = []
+    for name in app_names:
+        if name not in seen:
+            seen.add(name)
+            unique_apps.append(name)
+    
+    lines = [f"最近打開：{', '.join(unique_apps) if unique_apps else '暫無記錄'}"]
+    
     if ses:
         for app, secs in sorted(ses.items(), key=lambda x: x[1], reverse=True):
             m, s = divmod(secs, 60)
             lines.append(f"  {app}: {m}分{s}秒")
+    
     return "\n".join(lines)
 
-def bark_alert(title="祁宸", content=""):
+def bark_alert(title="凌止", content=""):
     if not content:
         return "內容不能為空"
     if not BARK_KEY:
