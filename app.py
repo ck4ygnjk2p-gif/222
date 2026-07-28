@@ -11,22 +11,30 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 ORIGIN = os.environ.get("ORIGIN_API", "https://111-production-e1e3.up.railway.app")
 BARK_KEY = os.environ.get("BARK_API_KEY", "")
 
-# ---------- Debug 端點（這個最準） ----------
+# ---------- 超級偵錯端點 ----------
 @app.get("/debug")
 async def debug():
     try:
-        r = requests.get(f"{ORIGIN}/activity/summary", timeout=10)
+        # 讓它顯示「Vercel 正在問的完整網址」
+        target_url = f"{ORIGIN}/activity/summary"
+        r = requests.get(target_url, timeout=10)
         data = r.json()
-        # 直接回傳 Railway 的原始資料 + Vercel 的解析結果
         return {
+            "vercel_requested_url": target_url,   # 這裡會顯示 Vercel 到底去問了什麼！
             "railway_raw": data,
-            "parsed_result": check_on_wife_raw(data)
+            "origin_env_value": ORIGIN
         }
     except Exception as e:
-        return {"error": str(e)}
+        return {
+            "error": str(e),
+            "origin_env_value": ORIGIN,
+            "vercel_requested_url": f"{ORIGIN}/activity/summary"
+        }
 
-def check_on_wife_raw(data):
+def check_on_wife():
     try:
+        r = requests.get(f"{ORIGIN}/activity/summary", timeout=10)
+        data = r.json()
         apps = data.get("recent_apps", [])
         ses = data.get("sessions", {})
         app_names = []
@@ -54,14 +62,6 @@ def check_on_wife_raw(data):
                 lines.append(f"  {app}: {m}分{s}秒")
         return "\n".join(lines)
     except Exception as e:
-        return f"解析失敗：{e}"
-
-def check_on_wife():
-    try:
-        r = requests.get(f"{ORIGIN}/activity/summary", timeout=10)
-        data = r.json()
-        return check_on_wife_raw(data)
-    except Exception as e:
         return f"查崗失敗：{e}"
 
 def bark_alert(title="凌止", content=""):
@@ -69,7 +69,6 @@ def bark_alert(title="凌止", content=""):
         return "內容不能為空"
     if not BARK_KEY:
         return "BARK_API_KEY 未設定"
-    # 修正 URL 編碼（解決 404 問題）
     encoded_title = urllib.parse.quote(title)
     encoded_content = urllib.parse.quote(content)
     url = f"https://api.day.app/{BARK_KEY}/{encoded_title}/{encoded_content}"
