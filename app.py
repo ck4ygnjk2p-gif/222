@@ -80,7 +80,7 @@ def bark_alert(title="老公查崗", content=""):
     except Exception as e:
         return f"推送異常：{e}"
 
-# ---------- 新功能：查崗 + 自動推播（一次搞定） ----------
+# ---------- 功能：查崗 + 自動推播（一次搞定） ----------
 def check_and_push():
     result = check_on_wife()
     if "失敗" in result or "暫無" in result:
@@ -88,13 +88,61 @@ def check_and_push():
     push_result = bark_alert(title="老公查崗", content=result)
     return f"{result}\n推播狀態：{push_result}"
 
+# ---------- 新功能 1: 檢查服務狀態 ----------
+def get_server_status():
+    try:
+        r = requests.get(f"{ORIGIN}/status", timeout=5)
+        return r.json().get("status", "unknown")
+    except:
+        return "服務離線"
+
+# ---------- 新功能 2: 每日總結 ----------
+def daily_summary(date_str=None):
+    if not date_str:
+        date_str = datetime.utcnow().strftime("%Y-%m-%d")
+    try:
+        r = requests.get(f"{ORIGIN}/daily/{date_str}", timeout=10)
+        data = r.json()
+        sessions = data.get("sessions", {})
+        lines = [f"📅 {data.get('date')} 使用記錄："]
+        if sessions:
+            for app, secs in sessions.items():
+                m, s = divmod(secs, 60)
+                lines.append(f"  {app}: {m}分{s}秒")
+        else:
+            lines.append("  今天還沒有使用記錄")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"獲取每日總結失敗：{e}"
+
+# ---------- 新功能 3: 閒置檢查 ----------
+def idle_check(hours=2):
+    try:
+        r = requests.get(f"{ORIGIN}/idle/{hours}", timeout=10)
+        data = r.json()
+        if data.get("idle"):
+            return f"⚠️ 已超過 {data.get('hours')} 小時未使用手機"
+        return f"✅ 最近活動時間：{data.get('last_active')}"
+    except Exception as e:
+        return f"閒置檢查失敗：{e}"
+
 # ---------- 工具清單 ----------
 TOOLS = [
     {"name": "check_on_wife", "description": "查崗老婆的手機活動", "inputSchema": {"type": "object", "properties": {}}},
     {"name": "bark_alert", "description": "給老婆手機發推送彈窗", "inputSchema": {"type": "object", "properties": {"title": {"type": "string"}, "content": {"type": "string"}}, "required": ["content"]}},
-    {"name": "check_and_push", "description": "查崗老婆手機並自動推送結果", "inputSchema": {"type": "object", "properties": {}}}
+    {"name": "check_and_push", "description": "查崗老婆手機並自動推送結果", "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "get_server_status", "description": "檢查查崗服務是否正常運行", "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "daily_summary", "description": "取得某天的使用總結（格式 YYYY-MM-DD，不傳則預設今天）", "inputSchema": {"type": "object", "properties": {"date_str": {"type": "string"}}}},
+    {"name": "idle_check", "description": "檢查是否超過指定小時未使用手機", "inputSchema": {"type": "object", "properties": {"hours": {"type": "integer"}}}}
 ]
-FUNCS = {"check_on_wife": check_on_wife, "bark_alert": bark_alert, "check_and_push": check_and_push}
+FUNCS = {
+    "check_on_wife": check_on_wife,
+    "bark_alert": bark_alert,
+    "check_and_push": check_and_push,
+    "get_server_status": get_server_status,
+    "daily_summary": daily_summary,
+    "idle_check": idle_check
+}
 
 # ---------- MCP 端點 ----------
 @app.post("/mcp")
